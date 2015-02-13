@@ -1,0 +1,366 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>More advanced topics &mdash; Psycopg v2.0.14 documentation</title>
+    <link rel="stylesheet" href="_static/psycopg.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '#',
+        VERSION:     '2.0.14',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Psycopg v2.0.14 documentation" href="index.html" />
+    <link rel="next" title="psycopg2.extensions – Extensions to the DB API" href="extensions.html" />
+    <link rel="prev" title="The cursor class" href="cursor.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             accesskey="M">modules</a> |</li>
+        <li class="right" >
+          <a href="extensions.html" title="psycopg2.extensions – Extensions to the DB API"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="cursor.html" title="The cursor class"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Psycopg v2.0.14 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="more-advanced-topics">
+<h1>More advanced topics<a class="headerlink" href="#more-advanced-topics" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="connection-and-cursor-factories">
+<span id="subclassing-cursor"></span><span id="subclassing-connection"></span><span id="index-217"></span><h2>Connection and cursor factories<a class="headerlink" href="#connection-and-cursor-factories" title="Permalink to this headline">¶</a></h2>
+<p>Psycopg exposes two new-style classes that can be sub-classed and expanded to
+adapt them to the needs of the programmer: <a title="psycopg2.extensions.cursor" class="reference external" href="extensions.html#psycopg2.extensions.cursor"><tt class="xref docutils literal"><span class="pre">psycopg2.extensions.cursor</span></tt></a>
+and <a title="psycopg2.extensions.connection" class="reference external" href="extensions.html#psycopg2.extensions.connection"><tt class="xref docutils literal"><span class="pre">psycopg2.extensions.connection</span></tt></a>.  The <a title="connection" class="reference external" href="connection.html#connection"><tt class="xref docutils literal"><span class="pre">connection</span></tt></a> class is
+usually sub-classed only to provide an easy way to create customized cursors
+but other uses are possible. <a title="cursor" class="reference external" href="cursor.html#cursor"><tt class="xref docutils literal"><span class="pre">cursor</span></tt></a> is much more interesting, because
+it is the class where query building, execution and result type-casting into
+Python variables happens.</p>
+<p id="index-218">An example of cursor subclass performing logging is:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">psycopg2</span>
+<span class="kn">import</span> <span class="nn">psycopg2.extensions</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="k">class</span> <span class="nc">LoggingCursor</span><span class="p">(</span><span class="n">psycopg2</span><span class="o">.</span><span class="n">extensions</span><span class="o">.</span><span class="n">cursor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sql</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s">&#39;sql_debug&#39;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mogrify</span><span class="p">(</span><span class="n">sql</span><span class="p">,</span> <span class="n">args</span><span class="p">))</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">psycopg2</span><span class="o">.</span><span class="n">extensions</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sql</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%s</span><span class="s">: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">exc</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">exc</span><span class="p">))</span>
+            <span class="k">raise</span>
+
+<span class="n">conn</span> <span class="o">=</span> <span class="n">psycopg2</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">DSN</span><span class="p">)</span>
+<span class="n">cur</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">(</span><span class="n">cursor_factory</span><span class="o">=</span><span class="n">LoggingCursor</span><span class="p">)</span>
+<span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;INSERT INTO mytable VALUES (</span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">);&quot;</span><span class="p">,</span>
+             <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="adapting-new-python-types-to-sql-syntax">
+<span id="adapting-new-types"></span><span id="index-219"></span><h2>Adapting new Python types to SQL syntax<a class="headerlink" href="#adapting-new-python-types-to-sql-syntax" title="Permalink to this headline">¶</a></h2>
+<p>Any Python class or type can be adapted to an SQL string.  Adaptation mechanism
+is similar to the Object Adaptation proposed in the <span class="target" id="index-220"></span><a class="reference external" href="http://www.python.org/dev/peps/pep-0246"><strong>PEP 246</strong></a> and is exposed
+by the <a title="psycopg2.extensions.adapt" class="reference external" href="extensions.html#psycopg2.extensions.adapt"><tt class="xref docutils literal"><span class="pre">psycopg2.extensions.adapt()</span></tt></a> function.</p>
+<p>The <a title="cursor.execute" class="reference external" href="cursor.html#cursor.execute"><tt class="xref docutils literal"><span class="pre">execute()</span></tt></a> method adapts its arguments to the
+<a title="psycopg2.extensions.ISQLQuote" class="reference external" href="extensions.html#psycopg2.extensions.ISQLQuote"><tt class="xref docutils literal"><span class="pre">ISQLQuote</span></tt></a> protocol.  Objects that conform to this
+protocol expose a <tt class="xref docutils literal"><span class="pre">getquoted()</span></tt> method returning the SQL representation
+of the object as a string.</p>
+<p>The easiest way to adapt an object to an SQL string is to register an adapter
+function via the <a title="psycopg2.extensions.register_adapter" class="reference external" href="extensions.html#psycopg2.extensions.register_adapter"><tt class="xref docutils literal"><span class="pre">register_adapter()</span></tt></a> function.  The
+adapter function must take the value to be adapted as argument and return a
+conform object.  A convenient object is the <a title="psycopg2.extensions.AsIs" class="reference external" href="extensions.html#psycopg2.extensions.AsIs"><tt class="xref docutils literal"><span class="pre">AsIs</span></tt></a>
+wrapper, whose <tt class="xref docutils literal"><span class="pre">getquoted()</span></tt> result is simply the <tt class="xref docutils literal"><span class="pre">str()</span></tt>ing
+conversion of the wrapped object.</p>
+<p id="index-221">Example: mapping of a <tt class="xref docutils literal"><span class="pre">Point</span></tt> class into the <a class="reference external" href="http://www.postgresql.org/docs/8.4/static/datatype-geometric.html#AEN6084"><tt class="sql docutils literal"><span class="pre">point</span></tt></a> PostgreSQL
+geometric type:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">psycopg2.extensions</span> <span class="kn">import</span> <span class="n">adapt</span><span class="p">,</span> <span class="n">register_adapter</span><span class="p">,</span> <span class="n">AsIs</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="k">class</span> <span class="nc">Point</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="gp">... </span>   <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+<span class="gp">... </span>       <span class="bp">self</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span>
+<span class="gp">... </span>       <span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">y</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">adapt_point</span><span class="p">(</span><span class="n">point</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="k">return</span> <span class="n">AsIs</span><span class="p">(</span><span class="s">&quot;&#39;(</span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">)&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">adapt</span><span class="p">(</span><span class="n">point</span><span class="o">.</span><span class="n">x</span><span class="p">),</span> <span class="n">adapt</span><span class="p">(</span><span class="n">point</span><span class="o">.</span><span class="n">y</span><span class="p">)))</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">register_adapter</span><span class="p">(</span><span class="n">Point</span><span class="p">,</span> <span class="n">adapt_point</span><span class="p">)</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;INSERT INTO atable (apoint) VALUES (</span><span class="si">%s</span><span class="s">)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="mf">1.23</span><span class="p">,</span> <span class="mf">4.56</span><span class="p">),))</span>
+</pre></div>
+</div>
+<p>The above function call results in the SQL command:</p>
+<div class="highlight-python"><pre>INSERT INTO atable (apoint) VALUES ((1.23, 4.56));</pre>
+</div>
+</div>
+<div class="section" id="type-casting-of-sql-types-into-python-objects">
+<span id="type-casting-from-sql-to-python"></span><span id="index-222"></span><h2>Type casting of SQL types into Python objects<a class="headerlink" href="#type-casting-of-sql-types-into-python-objects" title="Permalink to this headline">¶</a></h2>
+<p>PostgreSQL objects read from the database can be adapted to Python objects
+through an user-defined adapting function.  An adapter function takes two
+arguments: the object string representation as returned by PostgreSQL and the
+cursor currently being read, and should return a new Python object.  For
+example, the following function parses the PostgreSQL <tt class="sql docutils literal"><span class="pre">point</span></tt>
+representation into the previously defined <tt class="xref docutils literal"><span class="pre">Point</span></tt> class:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">cast_point</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">cur</span><span class="p">):</span>
+<span class="gp">... </span>   <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+<span class="gp">... </span>       <span class="k">return</span> <span class="bp">None</span>
+<span class="gp">...</span>
+<span class="gp">... </span>   <span class="c"># Convert from (f1, f2) syntax using a regular expression.</span>
+<span class="gp">... </span>   <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="s">r&quot;\(([^)]+),([^)]+)\)&quot;</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<span class="gp">... </span>   <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
+<span class="gp">... </span>       <span class="k">return</span> <span class="n">Point</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span> <span class="nb">float</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
+<span class="gp">... </span>   <span class="k">else</span><span class="p">:</span>
+<span class="gp">... </span>       <span class="k">raise</span> <span class="n">InterfaceError</span><span class="p">(</span><span class="s">&quot;bad point representation: </span><span class="si">%r</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In order to create a mapping from a PostgreSQL type (either standard or
+user-defined), its OID must be known. It can be retrieved either by the second
+column of the <a title="cursor.description" class="reference external" href="cursor.html#cursor.description"><tt class="xref docutils literal"><span class="pre">cursor.description</span></tt></a>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;SELECT NULL::point&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">point_oid</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">description</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">point_oid</span>
+<span class="go">600</span>
+</pre></div>
+</div>
+<p>or by querying the system catalog for the type name and namespace (the
+namespace for system objects is <tt class="sql docutils literal"><span class="pre">pg_catalog</span></tt>):</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;&quot;&quot;</span>
+<span class="gp">... </span><span class="s">   SELECT pg_type.oid</span>
+<span class="gp">... </span><span class="s">     FROM pg_type JOIN pg_namespace</span>
+<span class="gp">... </span><span class="s">            ON typnamespace = pg_namespace.oid</span>
+<span class="gp">... </span><span class="s">    WHERE typname = </span><span class="si">%(typename)s</span><span class="s"></span>
+<span class="gp">... </span><span class="s">      AND nspname = </span><span class="si">%(namespace)s</span><span class="s">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="p">{</span><span class="s">&#39;typename&#39;</span><span class="p">:</span> <span class="s">&#39;point&#39;</span><span class="p">,</span> <span class="s">&#39;namespace&#39;</span><span class="p">:</span> <span class="s">&#39;pg_catalog&#39;</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">point_oid</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">point_oid</span>
+<span class="go">600</span>
+</pre></div>
+</div>
+<p>After you know the object OID, you can create and register the new type:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">POINT</span> <span class="o">=</span> <span class="n">psycopg2</span><span class="o">.</span><span class="n">extensions</span><span class="o">.</span><span class="n">new_type</span><span class="p">((</span><span class="n">point_oid</span><span class="p">,),</span> <span class="s">&quot;POINT&quot;</span><span class="p">,</span> <span class="n">cast_point</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">psycopg2</span><span class="o">.</span><span class="n">extensions</span><span class="o">.</span><span class="n">register_type</span><span class="p">(</span><span class="n">POINT</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <a title="psycopg2.extensions.new_type" class="reference external" href="extensions.html#psycopg2.extensions.new_type"><tt class="xref docutils literal"><span class="pre">new_type()</span></tt></a> function binds the object OIDs
+(more than one can be specified) to the adapter function.
+<a title="psycopg2.extensions.register_type" class="reference external" href="extensions.html#psycopg2.extensions.register_type"><tt class="xref docutils literal"><span class="pre">register_type()</span></tt></a> completes the spell.  Conversion
+is automatically performed when a column whose type is a registered OID is
+read:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;SELECT &#39;(10.2,20.3)&#39;::point&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">point</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">print</span> <span class="nb">type</span><span class="p">(</span><span class="n">point</span><span class="p">),</span> <span class="n">point</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">point</span><span class="o">.</span><span class="n">y</span>
+<span class="go">&lt;class &#39;Point&#39;&gt; 10.2 20.3</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="asynchronous-notifications">
+<span id="async-notify"></span><span id="index-223"></span><h2>Asynchronous notifications<a class="headerlink" href="#asynchronous-notifications" title="Permalink to this headline">¶</a></h2>
+<p>Psycopg allows asynchronous interaction with other database sessions using the
+facilities offered by PostgreSQL commands <a class="reference external" href="http://www.postgresql.org/docs/8.4/static/sql-listen.html"><tt class="sql docutils literal"><span class="pre">LISTEN</span></tt></a> and <a class="reference external" href="http://www.postgresql.org/docs/8.4/static/sql-notify.html"><tt class="sql docutils literal"><span class="pre">NOTIFY</span></tt></a>. Please
+refer to the PostgreSQL documentation for examples of how to use this form of
+communications.</p>
+<p>Notifications received are made available in the <a title="connection.notifies" class="reference external" href="connection.html#connection.notifies"><tt class="xref docutils literal"><span class="pre">connection.notifies</span></tt></a>
+list. Notifications can be sent from Python code simply using a <tt class="sql docutils literal"><span class="pre">NOTIFY</span></tt>
+command in an <a title="cursor.execute" class="reference external" href="cursor.html#cursor.execute"><tt class="xref docutils literal"><span class="pre">execute()</span></tt></a> call.</p>
+<p>Because of the way sessions interact with notifications (see <a class="reference external" href="http://www.postgresql.org/docs/8.4/static/sql-notify.html"><tt class="sql docutils literal"><span class="pre">NOTIFY</span></tt></a>
+documentation), you should keep the connection in <a class="reference external" href="connection.html#autocommit"><em>autocommit</em></a> mode while sending and receiveng notification.</p>
+<p id="index-224">Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">select</span>
+<span class="kn">import</span> <span class="nn">psycopg2</span>
+<span class="kn">import</span> <span class="nn">psycopg2.extensions</span>
+
+<span class="n">conn</span> <span class="o">=</span> <span class="n">psycopg2</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">DSN</span><span class="p">)</span>
+<span class="n">conn</span><span class="o">.</span><span class="n">set_isolation_level</span><span class="p">(</span><span class="n">psycopg2</span><span class="o">.</span><span class="n">extensions</span><span class="o">.</span><span class="n">ISOLATION_LEVEL_AUTOCOMMIT</span><span class="p">)</span>
+
+<span class="n">curs</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+<span class="n">curs</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;LISTEN test;&quot;</span><span class="p">)</span>
+
+<span class="k">print</span> <span class="s">&quot;Waiting for &#39;NOTIFY test&#39;&quot;</span>
+<span class="k">while</span> <span class="mi">1</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">select</span><span class="o">.</span><span class="n">select</span><span class="p">([</span><span class="n">curs</span><span class="p">],[],[],</span><span class="mi">5</span><span class="p">)</span><span class="o">==</span><span class="p">([],[],[]):</span>
+        <span class="k">print</span> <span class="s">&quot;Timeout&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">curs</span><span class="o">.</span><span class="n">isready</span><span class="p">():</span>
+            <span class="k">print</span> <span class="s">&quot;Got NOTIFY:&quot;</span><span class="p">,</span> <span class="n">curs</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">notifies</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Running the script and executing the command <tt class="sql docutils literal"><span class="pre">NOTIFY</span> <span class="pre">test</span></tt> in a separate
+<strong>psql</strong> shell, the output may look similar to:</p>
+<div class="highlight-python"><pre>Waiting for 'NOTIFY test'
+Timeout
+Timeout
+Got NOTIFY: (6535, 'test')
+Timeout
+...</pre>
+</div>
+</div>
+<div class="section" id="asynchronous-queries">
+<span id="index-225"></span><span id="id1"></span><h2>Asynchronous queries<a class="headerlink" href="#asynchronous-queries" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p>Psycopg support for asynchronous queries is still experimental and the
+informations reported here may be out of date.</p>
+<p class="last">Discussion, testing and suggestions are welcome.</p>
+</div>
+<p>Program code can initiate an asynchronous query by passing an <tt class="docutils literal"><span class="pre">async=1</span></tt> flag
+to the <a title="cursor.execute" class="reference external" href="cursor.html#cursor.execute"><tt class="xref docutils literal"><span class="pre">execute()</span></tt></a> or <a title="cursor.callproc" class="reference external" href="cursor.html#cursor.callproc"><tt class="xref docutils literal"><span class="pre">callproc()</span></tt></a> cursor methods. A
+very simple example, from the connection to the query:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">conn</span> <span class="o">=</span> <span class="n">psycopg2</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">database</span><span class="o">=</span><span class="s">&#39;test&#39;</span><span class="p">)</span>
+<span class="n">curs</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+<span class="n">curs</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;SELECT * from test WHERE fielda &gt; </span><span class="si">%s</span><span class="s">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">1971</span><span class="p">,),</span> <span class="n">async</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>From then on any query on other cursors derived from the same connection is
+doomed to fail (and raise an exception) until the original cursor (the one
+executing the query) complete the asynchronous operation. This can happen in
+a number of different ways:</p>
+<ol class="arabic simple">
+<li>one of the <tt class="xref docutils literal"><span class="pre">fetch*()</span></tt> methods is called, effectively blocking until
+data has been sent from the backend to the client, terminating the query.</li>
+<li><tt class="xref docutils literal"><span class="pre">connection.cancel()</span></tt> is called. This method tries to abort the
+current query and will block until the query is aborted or fully executed.
+The return value is <tt class="xref docutils literal"><span class="pre">True</span></tt> if the query was successfully aborted or
+<tt class="xref docutils literal"><span class="pre">False</span></tt> if it was executed. Query result are discarded in both cases.</li>
+<li><a title="cursor.execute" class="reference external" href="cursor.html#cursor.execute"><tt class="xref docutils literal"><span class="pre">execute()</span></tt></a> is called again on the same cursor
+(<tt class="xref docutils literal"><span class="pre">execute()</span></tt> on a different cursor will simply raise an exception).
+This waits for the complete execution of the current query, discard any
+data and execute the new one.</li>
+</ol>
+<p>Note that calling <tt class="xref docutils literal"><span class="pre">execute()</span></tt> two times in a row will not abort the
+former query and will temporarily go to synchronous mode until the first of
+the two queries is executed.</p>
+<p>Cursors now have some extra methods that make them useful during
+asynchronous queries:</p>
+<dl class="docutils">
+<dt><a title="cursor.fileno" class="reference external" href="cursor.html#cursor.fileno"><tt class="xref docutils literal"><span class="pre">fileno()</span></tt></a></dt>
+<dd>Returns the file descriptor associated with the current connection and
+make possible to use a cursor in a context where a file object would be
+expected (like in a <tt class="xref docutils literal"><span class="pre">select()</span></tt> call).</dd>
+<dt><a title="cursor.isready" class="reference external" href="cursor.html#cursor.isready"><tt class="xref docutils literal"><span class="pre">isready()</span></tt></a></dt>
+<dd>Returns <tt class="xref docutils literal"><span class="pre">False</span></tt> if the backend is still processing the query or <tt class="xref docutils literal"><span class="pre">True</span></tt>
+if data is ready to be fetched (by one of the <tt class="xref docutils literal"><span class="pre">fetch*()</span></tt> methods).</dd>
+</dl>
+<p id="index-226">A code snippet that shows how to use the cursor object in a <tt class="xref docutils literal"><span class="pre">select()</span></tt>
+call:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">psycopg2</span>
+<span class="kn">import</span> <span class="nn">select</span>
+
+<span class="n">conn</span> <span class="o">=</span> <span class="n">psycopg2</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">database</span><span class="o">=</span><span class="s">&#39;test&#39;</span><span class="p">)</span>
+<span class="n">curs</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+<span class="n">curs</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;SELECT * from test WHERE fielda &gt; </span><span class="si">%s</span><span class="s">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">1971</span><span class="p">,),</span> <span class="n">async</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="c"># wait for input with a maximum timeout of 5 seconds</span>
+<span class="n">query_ended</span> <span class="o">=</span> <span class="bp">False</span>
+<span class="k">while</span> <span class="ow">not</span> <span class="n">query_ended</span><span class="p">:</span>
+    <span class="n">rread</span><span class="p">,</span> <span class="n">rwrite</span><span class="p">,</span> <span class="n">rspec</span> <span class="o">=</span> <span class="n">select</span><span class="p">([</span><span class="n">curs</span><span class="p">,</span> <span class="n">another_file</span><span class="p">],</span> <span class="p">[],</span> <span class="p">[],</span> <span class="mi">5</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">curs</span><span class="o">.</span><span class="n">isready</span><span class="p">():</span>
+   <span class="n">query_ended</span> <span class="o">=</span> <span class="bp">True</span>
+
+<span class="c"># manage input from other sources like other_file, etc.</span>
+
+<span class="k">print</span> <span class="s">&quot;Query Results:&quot;</span>
+<span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">curs</span><span class="p">:</span>
+    <span class="k">print</span> <span class="n">row</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h3><a href="index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference external" href="#">More advanced topics</a><ul>
+<li><a class="reference external" href="#connection-and-cursor-factories">Connection and cursor factories</a></li>
+<li><a class="reference external" href="#adapting-new-python-types-to-sql-syntax">Adapting new Python types to SQL syntax</a></li>
+<li><a class="reference external" href="#type-casting-of-sql-types-into-python-objects">Type casting of SQL types into Python objects</a></li>
+<li><a class="reference external" href="#asynchronous-notifications">Asynchronous notifications</a></li>
+<li><a class="reference external" href="#asynchronous-queries">Asynchronous queries</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="cursor.html"
+                                  title="previous chapter">The <tt class="docutils literal"><span class="pre">cursor</span></tt> class</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="extensions.html"
+                                  title="next chapter"><tt class="docutils literal"><span class="pre">psycopg2.extensions</span></tt> &#8211; Extensions to the DB API</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="_sources/advanced.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="extensions.html" title="psycopg2.extensions – Extensions to the DB API"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="cursor.html" title="The cursor class"
+             >previous</a> |</li>
+        <li><a href="index.html">Psycopg v2.0.14 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2001-2010, Federico Di Gregorio. Documentation by Daniele Varrazzo.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.4.
+    </div>
+  </body>
+</html>
